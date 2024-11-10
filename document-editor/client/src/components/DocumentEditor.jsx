@@ -130,7 +130,7 @@ export default function DocumentEditor() {
       autoHideDuration={2000} 
       onClose={() => setSaveStatus('')}
       anchorOrigin={{ vertical: 'top', horizontal: 'right' }} // Changed to top-right
-      sx={{ marginTop: '20px' }} // Added margin from top
+      sx={{ marginTop: '20px' }} 
     >
       <Alert 
         severity={saveStatus === 'Error saving!' ? 'error' : 'success'} 
