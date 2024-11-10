@@ -37,8 +37,13 @@ router.get('/:id', async (req, res) => {
 // Create new document
 router.post('/', async (req, res) => {
   try {
+    console.log('Received request body:', req.body); // Add this line
+    
     const validation = Document.validate(req.body);
+    console.log('Validation result:', validation); // Add this line
+    
     if (!validation.isValid) {
+      console.log('Validation failed:', validation.errors); // Add this line
       return res.status(400).json({ errors: validation.errors });
     }
 
@@ -46,11 +51,14 @@ router.post('/', async (req, res) => {
     const { documents } = JSON.parse(data);
     
     const newDocument = Document.create(req.body);
+    console.log('Created new document:', newDocument); // Add this line
+    
     documents.push(newDocument);
     await fs.writeFile(DB_PATH, JSON.stringify({ documents }, null, 2));
     
     res.status(201).json(newDocument);
   } catch (err) {
+    console.error('Error in POST route:', err); // Add this line
     res.status(400).json({ message: err.message });
   }
 });
