@@ -1,153 +1,191 @@
-import { useState, useEffect, useCallback } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import React, { useState, useCallback, useRef } from 'react';
 import ReactQuill from 'react-quill';
-import 'react-quill/dist/quill.snow.css';
-import { 
-  Paper, 
-  TextField, 
-  Button, 
-  Stack,
-  Box,
-  Snackbar, // Add this
-  Alert    // Add this
-} from '@mui/material';
-import { getDocument, updateDocument } from '../services/api';
 
-// Debounce helper function
-const debounce = (func, wait) => {
-  let timeout;
-  return function executedFunction(...args) {
-    const later = () => {
-      clearTimeout(timeout);
-      func(...args);
-    };
-    clearTimeout(timeout);
-    timeout = setTimeout(later, wait);
-  };
-};
+function DocumentEditor({ document, onSave }) {
+  const [content, setContent] = useState(document?.content || '');
+  const [showPopup, setShowPopup] = useState(false);
+  const [selectedText, setSelectedText] = useState('');
+  const [popupPosition, setPopupPosition] = useState({ x: 0, y: 0 });
+  const [attributes, setAttributes] = useState({
+    tone: '',
+    style: '', 
+    pacing: '',
+  });
+  const quillRef = useRef(null);
 
-export default function DocumentEditor() {
-  const { id } = useParams();
-  const navigate = useNavigate();
-  const [currentDoc, setCurrentDoc] = useState({ title: '', content: '' });
-  const [saving, setSaving] = useState(false);
-  const [saveStatus, setSaveStatus] = useState(''); // Add this for status messages
-
-  useEffect(() => {
-    loadDocument();
-  }, [id]);
-
-  const loadDocument = async () => {
-    try {
-      const response = await getDocument(id);
-      setCurrentDoc(response.data);
-    } catch (error) {
-      console.error('Error loading document:', error);
-      navigate('/');
+  const handleSelectionChange = useCallback((range, oldRange, source) => {
+    if (range && range.length > 0) {
+      const quill = quillRef.current.getEditor();
+      const bounds = quill.getBounds(range.index, range.length);
+      const editorBounds = quill.container.getBoundingClientRect();
+      
+      const text = quill.getText(range.index, range.length);
+      
+      setSelectedText(text);
+      setPopupPosition({
+        x: editorBounds.left + bounds.left,
+        y: editorBounds.top + bounds.bottom + window.scrollY + 10
+      });
+      setShowPopup(true);
+    } else {
+      setShowPopup(false);
     }
+  }, []);
+
+  const handleChange = (value) => {
+    setContent(value);
+    onSave?.(value);
   };
 
-  // Create memoized autoSave function
-  const autoSave = useCallback(
-    debounce(async (docData) => {
-      setSaving(true);
-      setSaveStatus('Saving...');
-      try {
-        await updateDocument(id, docData);
-        setSaveStatus('Saved!');
-      } catch (error) {
-        console.error('Error auto-saving:', error);
-        setSaveStatus('Error saving!');
-      } finally {
-        setSaving(false);
-        // Clear "Saved!" message after 2 seconds
-        setTimeout(() => setSaveStatus(''), 2000);
+  const handleAttributeSubmit = async (event, quill) => {
+    event.preventDefault();
+    try {
+      const response = await fetch('/api/rewrite', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          text: selectedText,
+          attributes: attributes,
+        }),
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to rewrite text');
       }
-    }, 1000),
-    [id]
-  );
 
-  const handleTitleChange = (event) => {
-    const newDoc = { ...currentDoc, title: event.target.value };
-    setCurrentDoc(newDoc);
-    autoSave(newDoc);
-  };
-
-  const handleContentChange = (content) => {
-    const newDoc = { ...currentDoc, content };
-    setCurrentDoc(newDoc);
-    autoSave(newDoc);
-  };
-
-  // Manual save button (optional, since we have autosave)
-  const handleSave = async () => {
-    setSaving(true);
-    try {
-      await updateDocument(id, currentDoc);
-      setSaveStatus('Saved!');
+      const data = await response.json();
+      
+      const range = quill.getSelection();
+      if (range) {
+        quill.deleteText(range.index, range.length);
+        quill.insertText(range.index, data.rewrittenText);
+      }
+      
+      setShowPopup(false);
     } catch (error) {
-      console.error('Error saving document:', error);
-      setSaveStatus('Error saving!');
+      console.error('Error:', error);
     }
-    setSaving(false);
   };
 
   return (
-    <Paper sx={{ p: 2, height: '90vh', display: 'flex', flexDirection: 'column' }}>
-      <Stack spacing={2} sx={{ height: '100%' }}>
-        <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
-          <TextField
-            fullWidth
-            label="Title"
-            value={currentDoc.title}
-            onChange={handleTitleChange}
-          />
-          <Button 
-            variant="contained" 
-            onClick={handleSave}
-            disabled={saving}
-          >
-            {saving ? 'Saving...' : 'Save'}
-          </Button>
-          <Button 
-            variant="outlined" 
-            onClick={() => navigate('/')}
-          >
-            Back
-          </Button>
-        </Box>
-        
-        {/* Updated ReactQuill container */}
-        <Box sx={{ flexGrow: 1, '& .quill': { height: '100%' } }}>
-          <ReactQuill
-            theme="snow"
-            value={currentDoc.content}
-            onChange={handleContentChange}
-            style={{ height: 'calc(100% - 42px)' }} // 42px is the toolbar height
-          />
-        </Box>
-      </Stack>
-  
-      <Snackbar 
-        open={!!saveStatus} 
-        autoHideDuration={2000} 
-        onClose={() => setSaveStatus('')}
-        anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
-      >
-        <Alert 
-          severity={saveStatus === 'Error saving!' ? 'error' : 'success'} 
-          sx={{ 
-            width: '100%',
-            boxShadow: 2,
-            '& .MuiAlert-message': {
-              fontSize: '1rem',
-              fontWeight: 500
-            }
+    <div>
+      <ReactQuill
+        ref={quillRef}
+        value={content}
+        onChange={handleChange}
+        onChangeSelection={handleSelectionChange}
+      />
+
+      {showPopup && (
+        <div 
+          style={{
+            position: 'absolute',
+            left: `${popupPosition.x}px`,
+            top: `${popupPosition.y}px`,
+            background: 'white',
+            padding: '16px',
+            borderRadius: '8px',
+            boxShadow: '0 2px 10px rgba(0, 0, 0, 0.1)',
+            zIndex: 1000,
+            minWidth: '300px',
           }}
         >
-          {saveStatus}
-        </Alert>
-      </Snackbar>
-    </Paper>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '16px' }}>
+            <h3>Rewrite Text</h3>
+            <button 
+              type="button"
+              onClick={() => setShowPopup(false)}
+              style={{
+                background: 'none',
+                border: 'none',
+                fontSize: '20px',
+                cursor: 'pointer',
+              }}
+            >
+              &times;
+            </button>
+          </div>
+          
+          <form onSubmit={(e) => {
+            e.preventDefault();
+            handleAttributeSubmit(e, quillRef.current.getEditor());
+          }}>
+            <div style={{ marginBottom: '12px' }}>
+              <label htmlFor="tone">Tone:</label>
+              <select 
+                id="tone" 
+                name="tone" 
+                value={attributes.tone} 
+                onChange={(e) => setAttributes({...attributes, tone: e.target.value})}
+                style={{ width: '100%', padding: '8px' }}
+              >
+                <option value="">Select Tone</option>
+                <option value="humorous">Humorous</option>
+                <option value="serious">Serious</option>
+                <option value="professional">Professional</option>
+                <option value="casual">Casual</option>
+              </select>
+            </div>
+
+            <div style={{ marginBottom: '12px' }}>
+              <label htmlFor="style">Style:</label>
+              <select 
+                id="style" 
+                name="style" 
+                value={attributes.style} 
+                onChange={(e) => setAttributes({...attributes, style: e.target.value})}
+                style={{ width: '100%', padding: '8px' }}
+              >
+                <option value="">Select Style</option>
+                <option value="descriptive">Descriptive</option>
+                <option value="concise">Concise</option>
+                <option value="technical">Technical</option>
+                <option value="narrative">Narrative</option>
+              </select>
+            </div>
+
+            <div style={{ marginBottom: '12px' }}>
+              <label htmlFor="pacing">Pacing:</label>
+              <select 
+                id="pacing" 
+                name="pacing" 
+                value={attributes.pacing} 
+                onChange={(e) => setAttributes({...attributes, pacing: e.target.value})}
+                style={{ width: '100%', padding: '8px' }}
+              >
+                <option value="">Select Pacing</option>
+                <option value="fast">Fast</option>
+                <option value="moderate">Moderate</option>
+                <option value="slow">Slow</option>
+              </select>
+            </div>
+
+            <div style={{ margin: '16px 0', padding: '8px', background: '#f5f5f5' }}>
+              <strong>Selected Text:</strong>
+              <p>{selectedText}</p>
+            </div>
+
+            <button 
+              type="submit"
+              style={{
+                width: '100%',
+                padding: '8px',
+                background: '#007bff',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer',
+              }}
+            >
+              Rewrite
+            </button>
+          </form>
+        </div>
+      )}
+    </div>
   );
 }
+
+export default DocumentEditor;
