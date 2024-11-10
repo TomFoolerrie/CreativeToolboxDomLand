@@ -1,25 +1,11 @@
 {
   "documents": [
     {
-      "_id": "1731197215978",
-      "title": "Test Document",
-      "content": "<p>This is a test document</p><p>Hello</p><p>hey again?</p>",
-      "createdAt": 1731197215978,
-      "updatedAt": 1731197920617
-    },
-    {
-      "_id": "1731198199960",
-      "title": "This is a document",
-      "content": "<p>Heyyyyyy</p><p>heyyyyyyyyy</p><p>where is it?</p><p>autosave?</p><p>wowo</p>",
-      "createdAt": 1731198199960,
-      "updatedAt": 1731198695854
-    },
-    {
-      "_id": "1731198714438",
-      "title": "oh?",
-      "content": "<p>I am quite<strong> impressed</strong></p>",
-      "createdAt": 1731198714438,
-      "updatedAt": 1731198746902
+      "_id": "1731200773057",
+      "title": "Hey I am new",
+      "content": "<p>asdfasdfasdfas </p>",
+      "createdAt": 1731200773057,
+      "updatedAt": 1731201163560
     }
   ]
 }

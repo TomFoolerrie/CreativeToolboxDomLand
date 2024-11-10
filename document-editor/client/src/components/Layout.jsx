@@ -1,12 +1,16 @@
 import { AppBar, Toolbar, Typography, Container } from '@mui/material';
 import { Outlet } from 'react-router-dom';
+import Sidebar from './Sidebar';
 
 export default function Layout() {
   return (
     <>
       <AppBar position="static">
         <Toolbar>
-          <Typography variant="h6">Document Editor</Typography>
+          {/* <Sidebar />  */}
+          <Typography variant="h6">
+            Document Editor
+          </Typography>
         </Toolbar>
       </AppBar>
       <Container sx={{ mt: 4 }}>
