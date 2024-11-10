@@ -29,7 +29,7 @@ const debounce = (func, wait) => {
 export default function DocumentEditor() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const [document, setDocument] = useState({ title: '', content: '' });
+  const [currentDoc, setCurrentDoc] = useState({ title: '', content: '' });
   const [saving, setSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState(''); // Add this for status messages
 
@@ -40,7 +40,7 @@ export default function DocumentEditor() {
   const loadDocument = async () => {
     try {
       const response = await getDocument(id);
-      setDocument(response.data);
+      setCurrentDoc(response.data);
     } catch (error) {
       console.error('Error loading document:', error);
       navigate('/');
@@ -68,14 +68,14 @@ export default function DocumentEditor() {
   );
 
   const handleTitleChange = (event) => {
-    const newDoc = { ...document, title: event.target.value };
-    setDocument(newDoc);
+    const newDoc = { ...currentDoc, title: event.target.value };
+    setCurrentDoc(newDoc);
     autoSave(newDoc);
   };
 
   const handleContentChange = (content) => {
-    const newDoc = { ...document, content };
-    setDocument(newDoc);
+    const newDoc = { ...currentDoc, content };
+    setCurrentDoc(newDoc);
     autoSave(newDoc);
   };
 
@@ -83,7 +83,7 @@ export default function DocumentEditor() {
   const handleSave = async () => {
     setSaving(true);
     try {
-      await updateDocument(id, document);
+      await updateDocument(id, currentDoc);
       setSaveStatus('Saved!');
     } catch (error) {
       console.error('Error saving document:', error);
@@ -93,13 +93,13 @@ export default function DocumentEditor() {
   };
 
   return (
-    <Paper sx={{ p: 2 }}>
-      <Stack spacing={2}>
+    <Paper sx={{ p: 2, height: '90vh', display: 'flex', flexDirection: 'column' }}>
+      <Stack spacing={2} sx={{ height: '100%' }}>
         <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
           <TextField
             fullWidth
             label="Title"
-            value={document.title}
+            value={currentDoc.title}
             onChange={handleTitleChange}
           />
           <Button 
@@ -116,36 +116,38 @@ export default function DocumentEditor() {
             Back
           </Button>
         </Box>
-        <ReactQuill
-          theme="snow"
-          value={document.content}
-          onChange={handleContentChange}
-          style={{ height: '400px' }}
-        />
+        
+        {/* Updated ReactQuill container */}
+        <Box sx={{ flexGrow: 1, '& .quill': { height: '100%' } }}>
+          <ReactQuill
+            theme="snow"
+            value={currentDoc.content}
+            onChange={handleContentChange}
+            style={{ height: 'calc(100% - 42px)' }} // 42px is the toolbar height
+          />
+        </Box>
       </Stack>
-
-      {/* Status message */}
+  
       <Snackbar 
-      open={!!saveStatus} 
-      autoHideDuration={2000} 
-      onClose={() => setSaveStatus('')}
-      anchorOrigin={{ vertical: 'top', horizontal: 'right' }} // Changed to top-right
-      sx={{ marginTop: '20px' }} 
-    >
-      <Alert 
-        severity={saveStatus === 'Error saving!' ? 'error' : 'success'} 
-        sx={{ 
-          width: '100%',
-          boxShadow: 2, // Added shadow
-          '& .MuiAlert-message': { // Make text more visible
-            fontSize: '1rem',
-            fontWeight: 500
-          }
-        }}
+        open={!!saveStatus} 
+        autoHideDuration={2000} 
+        onClose={() => setSaveStatus('')}
+        anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
       >
-        {saveStatus}
-      </Alert>
-    </Snackbar>
+        <Alert 
+          severity={saveStatus === 'Error saving!' ? 'error' : 'success'} 
+          sx={{ 
+            width: '100%',
+            boxShadow: 2,
+            '& .MuiAlert-message': {
+              fontSize: '1rem',
+              fontWeight: 500
+            }
+          }}
+        >
+          {saveStatus}
+        </Alert>
+      </Snackbar>
     </Paper>
   );
 }
